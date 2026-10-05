@@ -1,15 +1,7 @@
 import React from 'react'
 
 export const FlowerLogo = ({ className = "w-7 h-7" }) => (
-  <svg viewBox="0 0 40 40" fill="none" className={className}>
-    <circle cx="20" cy="20" r="18" fill="#1E293B" />
-    {/* 4 colorful flower petals */}
-    <circle cx="20" cy="12" r="5" fill="#EF4444" opacity="0.9" />
-    <circle cx="28" cy="20" r="5" fill="#3B82F6" opacity="0.9" />
-    <circle cx="20" cy="28" r="5" fill="#22C55E" opacity="0.9" />
-    <circle cx="12" cy="20" r="5" fill="#F59E0B" opacity="0.9" />
-    <circle cx="20" cy="20" r="3" fill="#FFFFFF" />
-  </svg>
+  <img src="/flower-logo.png" alt="" aria-hidden="true" className={className} />
 )
 
 export const SearchIcon = ({ className = "w-5 h-5" }) => (
