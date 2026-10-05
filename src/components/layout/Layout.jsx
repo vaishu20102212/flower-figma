@@ -11,7 +11,7 @@ export default function Layout() {
     phone: localStorage.getItem('flower-profile-phone') || '+123-4567-8800',
     picture: localStorage.getItem('flower-profile-picture') || '',
   }))
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [focusSearchRequest, setFocusSearchRequest] = useState(0)
   const [isLocked, setIsLocked] = useState(false)
   const [isLoggedOut, setIsLoggedOut] = useState(false)

@@ -27,19 +27,13 @@ export default function Dashboard() {
 
   const [selectedRange, setSelectedRange] = useState('Last 7 days')
   const [showRangeMenu, setShowRangeMenu] = useState(false)
+  const [showSalesMenu, setShowSalesMenu] = useState(false)
+  const [showSalesDetails, setShowSalesDetails] = useState(false)
   const [hoveredBar, setHoveredBar] = useState(2) // default Wed
   const [hoveredFinanceBar, setHoveredFinanceBar] = useState(4)
   const [hoveredAnalyticsPoint, setHoveredAnalyticsPoint] = useState(3)
   const [isSocialChatOpen, setIsSocialChatOpen] = useState(false)
   const [showAddCardModal, setShowAddCardModal] = useState(false)
-
-  const handleSwitchDashboard = (viewKey) => {
-    if (outletCtx?.setHeaderTab) {
-      if (viewKey === 'social') outletCtx.setHeaderTab('settings')
-      else if (viewKey === 'overview') outletCtx.setHeaderTab('activity')
-      else if (viewKey === 'finance') outletCtx.setHeaderTab('users')
-    }
-  }
 
   // Social chat messages
   const [socialChatMessages, setSocialChatMessages] = useState([
@@ -97,49 +91,31 @@ export default function Dashboard() {
     window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
+  const downloadSalesReport = () => {
+    const rows = [
+      ['Period', 'Sales', 'Change'],
+      ['Current week', '2.500', '+8.8%'],
+      ['Last week', '1.000', '-5.8%'],
+      ['Total', '3.500', ''],
+    ]
+    const csv = rows
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+      .join('\r\n')
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = 'flower-sales-report.csv'
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
+    setShowSalesMenu(false)
+  }
+
   return (
     <div className="space-y-6 pb-12 animate-fadeIn relative">
-      {/* Top Level Sub-Dashboard Switcher Tabs */}
-      <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 bg-white p-3 md:p-4 rounded-3xl border border-slate-100 shadow-sm">
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 lg:pb-0">
-          <span className="text-xs font-bold text-slate-400 uppercase tracking-wider px-2 whitespace-nowrap">
-            Dashboard Style:
-          </span>
-          <button
-            onClick={() => handleSwitchDashboard('overview')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeDashboardView === 'overview'
-                ? 'bg-[#16A34A] text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <span>Activity (Sales & Analytics)</span>
-          </button>
-
-          <button
-            onClick={() => handleSwitchDashboard('social')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeDashboardView === 'social'
-                ? 'bg-[#16A34A] text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <span>Settings (Profile & Social)</span>
-          </button>
-
-          <button
-            onClick={() => handleSwitchDashboard('finance')}
-            className={`px-4 py-2 rounded-2xl text-xs font-bold transition-all whitespace-nowrap flex items-center gap-2 ${
-              activeDashboardView === 'finance'
-                ? 'bg-[#16A34A] text-white shadow-md'
-                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-            }`}
-          >
-            <span>Users (Finance & Cards)</span>
-          </button>
-        </div>
-
-        <div className="flex items-center gap-3 self-end lg:self-auto">
+      <div className="flex justify-end">
+        <div className="flex items-center gap-3">
           {/* Download Report Button */}
           <button
             type="button"
@@ -491,9 +467,45 @@ export default function Dashboard() {
             <div className="min-h-[252px] bg-white rounded-md p-4 shadow-sm border border-slate-200 flex flex-col justify-between">
               <div className="flex items-center justify-between">
                 <h3 className="text-sm font-bold text-slate-700">Sales</h3>
-                <button className="text-slate-400 hover:text-slate-600">
-                  <MoreHorizontalIcon className="w-5 h-5" />
-                </button>
+                <div className="relative">
+                  <button
+                    type="button"
+                    aria-label="Sales options"
+                    aria-haspopup="menu"
+                    aria-expanded={showSalesMenu}
+                    onClick={() => setShowSalesMenu((open) => !open)}
+                    className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600"
+                  >
+                    <MoreHorizontalIcon className="w-5 h-5" />
+                  </button>
+                  {showSalesMenu && (
+                    <div
+                      role="menu"
+                      aria-label="Sales options"
+                      className="absolute right-0 top-full z-40 mt-1 w-44 rounded-xl border border-slate-100 bg-white p-1.5 shadow-xl"
+                    >
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={() => {
+                          setShowSalesMenu(false)
+                          setShowSalesDetails(true)
+                        }}
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        View sales details
+                      </button>
+                      <button
+                        type="button"
+                        role="menuitem"
+                        onClick={downloadSalesReport}
+                        className="w-full rounded-lg px-3 py-2 text-left text-xs font-semibold text-slate-600 hover:bg-slate-50"
+                      >
+                        Download sales CSV
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Donut Chart */}
@@ -1651,6 +1663,48 @@ export default function Dashboard() {
               <button onClick={() => setShowAddCardModal(false)} className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl text-xs font-bold shadow">Save Card</button>
             </div>
           </div>
+        </div>
+      )}
+
+      {showSalesDetails && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) setShowSalesDetails(false)
+          }}
+        >
+          <section
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="sales-details-title"
+            className="w-full max-w-sm rounded-3xl border border-slate-100 bg-white p-6 shadow-2xl"
+          >
+            <div className="flex items-center justify-between">
+              <h2 id="sales-details-title" className="text-base font-bold text-slate-800">Sales details</h2>
+              <button
+                type="button"
+                aria-label="Close sales details"
+                onClick={() => setShowSalesDetails(false)}
+                className="rounded-lg p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
+              >
+                <CloseIcon className="h-5 w-5" />
+              </button>
+            </div>
+            <div className="mt-5 space-y-3 text-sm">
+              <div className="flex justify-between border-b border-slate-100 pb-3">
+                <span className="text-slate-500">Current week</span>
+                <span className="font-bold text-slate-800">2.500 <span className="text-xs text-emerald-600">↑ 8.8%</span></span>
+              </div>
+              <div className="flex justify-between border-b border-slate-100 pb-3">
+                <span className="text-slate-500">Last week</span>
+                <span className="font-bold text-slate-800">1.000 <span className="text-xs text-rose-600">↓ 5.8%</span></span>
+              </div>
+              <div className="flex justify-between">
+                <span className="font-semibold text-slate-700">Total sales</span>
+                <span className="font-extrabold text-slate-900">3.500</span>
+              </div>
+            </div>
+          </section>
         </div>
       )}
     </div>
