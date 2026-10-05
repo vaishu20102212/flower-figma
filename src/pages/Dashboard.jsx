@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useOutletContext } from 'react-router-dom'
+import { useNavigate, useOutletContext } from 'react-router-dom'
 import {
   recentOrders,
   recentTransactions,
@@ -16,6 +16,7 @@ import {
 
 export default function Dashboard() {
   const outletCtx = useOutletContext()
+  const navigate = useNavigate()
   // Active Dashboard Sub-View: 'overview' (Activity) | 'social' (Settings) | 'finance' (Users)
   const activeDashboardView =
     outletCtx?.headerTab === 'activity'
@@ -24,7 +25,8 @@ export default function Dashboard() {
       ? 'finance'
       : 'social'
 
-  const [selectedRange] = useState('Last 7 days')
+  const [selectedRange, setSelectedRange] = useState('Last 7 days')
+  const [showRangeMenu, setShowRangeMenu] = useState(false)
   const [hoveredBar, setHoveredBar] = useState(2) // default Wed
   const [hoveredFinanceBar, setHoveredFinanceBar] = useState(4)
   const [hoveredAnalyticsPoint, setHoveredAnalyticsPoint] = useState(3)
@@ -59,6 +61,40 @@ export default function Dashboard() {
       { id: Date.now(), sender: 'me', text: chatInput, time: 'Just now' }
     ])
     setChatInput('')
+  }
+
+  const downloadReport = () => {
+    const rows = [
+      ['Type', 'Date / Range', 'Name', 'Details', 'Amount'],
+      ['Report', selectedRange, 'Dashboard summary', `Generated ${new Date().toLocaleDateString()}`, ''],
+      ['Metric', selectedRange, 'Total Income', 'Income summary', '$8.500'],
+      ['Metric', selectedRange, 'Total Sales', 'Sales summary', '3.500K'],
+      ...recentOrders.map((order) => [
+        'Order',
+        order.date,
+        order.customerName,
+        `${order.orderNo} - ${order.paymentType}`,
+        order.amount,
+      ]),
+      ...recentTransactions.map((transaction) => [
+        'Transaction',
+        transaction.time,
+        transaction.name,
+        transaction.type,
+        transaction.amount,
+      ]),
+    ]
+    const csv = rows
+      .map((row) => row.map((value) => `"${String(value).replaceAll('"', '""')}"`).join(','))
+      .join('\r\n')
+    const url = URL.createObjectURL(new Blob([`\uFEFF${csv}`], { type: 'text/csv;charset=utf-8' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `flower-dashboard-${selectedRange.toLowerCase().replaceAll(' ', '-')}.csv`
+    document.body.appendChild(link)
+    link.click()
+    link.remove()
+    window.setTimeout(() => URL.revokeObjectURL(url), 1000)
   }
 
   return (
@@ -106,7 +142,10 @@ export default function Dashboard() {
         <div className="flex items-center gap-3 self-end lg:self-auto">
           {/* Download Report Button */}
           <button
+            type="button"
+            onClick={downloadReport}
             title="Download Report"
+            aria-label="Download dashboard report"
             className="p-2.5 bg-white hover:bg-slate-50 text-slate-600 rounded-2xl border border-slate-200/80 shadow-sm transition"
           >
             <DownloadIcon className="w-4 h-4" />
@@ -114,10 +153,43 @@ export default function Dashboard() {
 
           {/* Date Filter Pill Dropdown */}
           <div className="relative inline-block">
-            <button className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 rounded-2xl border border-slate-200/80 shadow-sm transition">
+            <button
+              type="button"
+              onClick={() => setShowRangeMenu((open) => !open)}
+              aria-haspopup="listbox"
+              aria-expanded={showRangeMenu}
+              className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 rounded-2xl border border-slate-200/80 shadow-sm transition"
+            >
               <span>{selectedRange}</span>
               <ChevronDownIcon className="w-3.5 h-3.5 text-slate-400" />
             </button>
+            {showRangeMenu && (
+              <div
+                role="listbox"
+                aria-label="Select date range"
+                className="absolute right-0 top-full z-50 mt-2 min-w-36 rounded-2xl border border-slate-100 bg-white p-1.5 shadow-xl"
+              >
+                {['Last 7 days', 'Last 30 days', 'Last 90 days', 'This year'].map((range) => (
+                  <button
+                    key={range}
+                    type="button"
+                    role="option"
+                    aria-selected={selectedRange === range}
+                    onClick={() => {
+                      setSelectedRange(range)
+                      setShowRangeMenu(false)
+                    }}
+                    className={`w-full rounded-xl px-3 py-2 text-left text-xs font-semibold transition ${
+                      selectedRange === range
+                        ? 'bg-[#F0FCE7] text-[#14532D]'
+                        : 'text-slate-600 hover:bg-slate-50'
+                    }`}
+                  >
+                    {range}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -696,13 +768,17 @@ export default function Dashboard() {
           <div className="lg:col-span-1 bg-white rounded-3xl p-6 shadow-card border border-slate-100 space-y-6">
             <div className="text-center">
               <img
-                src="/user-avatar.png"
-                alt="Felecia Brown"
+                src={outletCtx.profile.picture || '/user-avatar.png'}
+                alt={outletCtx.profile.name}
                 className="w-24 h-24 rounded-3xl object-cover mx-auto shadow-md border-2 border-emerald-500/20"
               />
-              <h3 className="text-base font-bold text-slate-800 mt-3">Felecia Brown</h3>
-              <p className="text-xs text-slate-400 font-medium">Project Manager</p>
-              <button className="mt-3 px-6 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold rounded-2xl shadow-md transition">
+              <h3 className="text-base font-bold text-slate-800 mt-3">{outletCtx.profile.name}</h3>
+              <p className="text-xs text-slate-400 font-medium">{outletCtx.profile.role}</p>
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="mt-3 px-6 py-2 bg-[#16A34A] hover:bg-[#15803D] text-white text-xs font-bold rounded-2xl shadow-md transition"
+              >
                 Edit profile
               </button>
             </div>
@@ -714,11 +790,11 @@ export default function Dashboard() {
               </span>
               <div>
                 <p className="text-[10px] text-slate-400 font-semibold uppercase">Email</p>
-                <p className="text-xs font-medium text-slate-700">example@mail.com</p>
+                <p className="text-xs font-medium text-slate-700">{outletCtx.profile.email}</p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 font-semibold uppercase">Phone</p>
-                <p className="text-xs font-medium text-slate-700">+123-4567-8800</p>
+                <p className="text-xs font-medium text-slate-700">{outletCtx.profile.phone}</p>
               </div>
               <div>
                 <p className="text-[10px] text-slate-400 font-semibold uppercase">Birthday</p>

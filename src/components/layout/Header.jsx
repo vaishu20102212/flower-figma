@@ -13,6 +13,8 @@ export default function Header({
   activeTab = 'settings',
   onSelectTab,
   onToggleSidebar,
+  onOpenSearch,
+  profile,
   onLockScreen,
   onLogout,
 }) {
@@ -126,7 +128,9 @@ export default function Header({
       <div className="flex items-center gap-2 md:gap-3">
         {/* Search Icon Button */}
         <button
+          onClick={onOpenSearch}
           title="Search"
+          aria-label="Open search"
           className="p-2 text-slate-500 hover:text-slate-800 rounded-xl hover:bg-slate-100 transition"
         >
           <SearchIcon className="w-5 h-5" />
@@ -202,12 +206,12 @@ export default function Header({
             className="flex items-center gap-2.5 p-1 rounded-2xl hover:bg-slate-50 transition"
           >
             <img
-              src="/user-avatar.png"
-              alt="ArtTemplate"
+              src={profile.picture || '/user-avatar.png'}
+              alt={profile.name}
               className="w-8 h-8 rounded-full object-cover ring-2 ring-[#16A34A]/30"
             />
             <span className="hidden md:inline text-xs font-bold text-slate-800">
-              ArtTemplate
+              {profile.name}
             </span>
             <ChevronDownIcon className="w-3.5 h-3.5 text-slate-400" />
           </button>
@@ -217,13 +221,13 @@ export default function Header({
               <div className="flex items-center justify-between px-5 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-2.5">
                   <img
-                    src="/user-avatar.png"
-                    alt="ArtTemplate"
+                    src={profile.picture || '/user-avatar.png'}
+                    alt={profile.name}
                     className="w-8 h-8 rounded-full object-cover"
                   />
                   <div>
-                    <p className="text-xs font-bold text-slate-800">ArtTemplate</p>
-                    <p className="text-[10px] text-slate-400">Manager</p>
+                    <p className="text-xs font-bold text-slate-800">{profile.name}</p>
+                    <p className="text-[10px] text-slate-400">{profile.role}</p>
                   </div>
                 </div>
                 <span className="text-[10px] font-bold text-white bg-rose-500 px-1.5 py-0.5 rounded-full">
