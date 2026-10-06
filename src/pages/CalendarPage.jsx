@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { calendarEvents as initialEvents } from '../data/mockData'
 import {
   PlusIcon,
   ChevronLeftIcon,
@@ -9,6 +10,8 @@ import {
 
 export default function CalendarPage() {
   const [currentView, setCurrentView] = useState('Month')
+  const [currentDate, setCurrentDate] = useState(new Date(2020, 8, 1))
+  const [events, setEvents] = useState(initialEvents)
   const [activeFilters, setActiveFilters] = useState([
     'Important',
     'Meeting',
@@ -18,7 +21,14 @@ export default function CalendarPage() {
   ])
   const [showAddEventModal, setShowAddEventModal] = useState(false)
   const [newEventTitle, setNewEventTitle] = useState('')
+  const [newEventDescription, setNewEventDescription] = useState('')
   const [newEventCategory, setNewEventCategory] = useState('Meeting')
+  const [newEventDate, setNewEventDate] = useState('2020-09-08')
+  const [newEventTime, setNewEventTime] = useState('10:00')
+  const [newEventEndDate, setNewEventEndDate] = useState('2020-09-08')
+  const [newEventEndTime, setNewEventEndTime] = useState('10:00')
+  const [isAllDayEvent, setIsAllDayEvent] = useState(true)
+  const [isRepeatingEvent, setIsRepeatingEvent] = useState(false)
 
   const categories = [
     { name: 'Important', color: 'bg-rose-500', ringColor: 'ring-rose-200' },
@@ -36,108 +46,77 @@ export default function CalendarPage() {
     }
   }
 
-  // September 2020 Calendar days layout (Starting Monday Aug 31)
-  const days = [
-    { day: 30, isPrev: true, hatched: true },
-    { day: 31, isPrev: true, hatched: true },
-    {
-      day: 1,
-      events: [
-        {
-          title: 'Call Back Priscilla',
-          time: '10:00',
-          category: 'Meeting',
-          colSpan: 2,
-          bg: 'bg-[#CCFBF1] text-[#0F766E]',
-        },
-      ],
-    },
-    { day: 2 },
-    { day: 3 },
-    { day: 4 },
-    { day: 5 },
+  const monthStart = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1)
+  const calendarStart = new Date(
+    monthStart.getFullYear(),
+    monthStart.getMonth(),
+    1 - ((monthStart.getDay() + 6) % 7),
+  )
+  const days = Array.from({ length: 42 }, (_, index) => {
+    const date = new Date(calendarStart)
+    date.setDate(calendarStart.getDate() + index)
+    const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+    return {
+      day: date.getDate(),
+      dateKey,
+      hatched: date.getMonth() !== currentDate.getMonth(),
+      isToday: date.toDateString() === new Date().toDateString(),
+      events: events
+        .filter((event) => {
+          if (!activeFilters.includes(event.category)) return false
+          if (event.repeat) {
+            const eventDate = new Date(`${event.date}T00:00:00`)
+            const repeatUntil = new Date(`${event.endDate || event.date}T23:59:59`)
+            return date >= eventDate && date <= repeatUntil && date.getDay() === eventDate.getDay()
+          }
+          return dateKey >= event.date && dateKey <= (event.endDate || event.date)
+        })
+        .map((event) => {
+          const categoryStyle = {
+            Important: 'bg-rose-100 text-rose-800 border-l-4 border-rose-400',
+            Meeting: 'bg-[#CCFBF1] text-[#0F766E]',
+            Event: 'bg-[#DCFCE7] text-[#166534] border-l-4 border-[#22C55E]',
+            Work: 'bg-[#FEF3C7] text-[#92400E] border-l-4 border-amber-400',
+            Other: 'bg-slate-100 text-slate-700',
+          }
+          return {
+            ...event,
+            time: event.allDay ? 'All day' : event.endTime ? `${event.time} - ${event.endTime}` : event.time,
+            bg: categoryStyle[event.category] || categoryStyle.Other,
+          }
+        }),
+    }
+  })
 
-    { day: 6 },
-    { day: 7 },
-    {
-      day: 8,
-      isToday: true,
-      events: [
-        {
-          title: 'Meeting with Judith',
-          time: '10:00',
-          category: 'Meeting',
-          colSpan: 2,
-          bg: 'bg-[#CCFBF1] text-[#0F766E]',
-        },
-        {
-          title: 'Meeting...',
-          time: '10:00',
-          category: 'Meeting',
-          colSpan: 1,
-          bg: 'bg-[#99F6E4] text-[#115E59]',
-        },
-      ],
-    },
-    { day: 9 },
-    { day: 10 },
-    { day: 11 },
-    { day: 12 },
+  const changeMonth = (offset) => {
+    setCurrentDate((date) => new Date(date.getFullYear(), date.getMonth() + offset, 1))
+  }
 
-    { day: 13 },
-    {
-      day: 14,
-      events: [
-        {
-          title: 'Project "Rocket"',
-          time: '10:00',
-          badge: '+5',
-          category: 'Work',
-          colSpan: 3,
-          bg: 'bg-[#FEF3C7] text-[#92400E] border-l-4 border-amber-400',
-        },
-      ],
-    },
-    { day: 15 },
-    { day: 16 },
-    { day: 17 },
-    { day: 18 },
-    { day: 19 },
+  const saveEvent = () => {
+    const eventTitle = newEventTitle.trim()
+    if (!eventTitle || !newEventDate || !newEventEndDate || newEventEndDate < newEventDate) return
 
-    { day: 20 },
-    { day: 21 },
-    { day: 22 },
-    {
-      day: 23,
-      events: [
-        {
-          title: 'Presentation',
-          time: '10:00',
-          category: 'Event',
-          colSpan: 3,
-          bg: 'bg-[#DCFCE7] text-[#166534] border-l-4 border-[#22C55E]',
-        },
-        {
-          title: 'Presentation',
-          time: '10:00',
-          category: 'Event',
-          colSpan: 2,
-          bg: 'bg-[#DCFCE7] text-[#166534] border-l-4 border-[#22C55E]',
-        },
-      ],
-    },
-    { day: 24 },
-    { day: 25 },
-    { day: 26 },
-
-    { day: 27 },
-    { day: 28 },
-    { day: 29 },
-    { day: 30 },
-    { day: 1, isNext: true, hatched: true },
-    { day: 2, isNext: true, hatched: true },
-    { day: 3, isNext: true, hatched: true },
-  ]
+    setEvents((currentEvents) => [
+      ...currentEvents,
+      {
+        id: Date.now(),
+        title: eventTitle,
+        description: newEventDescription.trim(),
+        category: newEventCategory,
+        date: newEventDate,
+        endDate: newEventEndDate,
+        time: isAllDayEvent ? '' : newEventTime,
+        endTime: isAllDayEvent ? '' : newEventEndTime,
+        allDay: isAllDayEvent,
+        repeat: isRepeatingEvent,
+      },
+    ])
+    setCurrentDate(new Date(`${newEventDate}T00:00:00`))
+    setActiveFilters((filters) => filters.includes(newEventCategory) ? filters : [...filters, newEventCategory])
+    setNewEventTitle('')
+    setNewEventDescription('')
+    setShowAddEventModal(false)
+  }
 
   return (
     <div className="space-y-6 pb-12 animate-fadeIn">
@@ -203,20 +182,21 @@ export default function CalendarPage() {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="flex items-center bg-slate-50 border border-slate-200/80 rounded-2xl p-1">
-                <button className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition">
+                <button onClick={() => changeMonth(-1)} aria-label="Previous month" className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition">
                   <ChevronLeftIcon className="w-4 h-4" />
                 </button>
-                <button className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition">
+                <button onClick={() => changeMonth(1)} aria-label="Next month" className="p-1.5 hover:bg-white rounded-xl text-slate-600 transition">
                   <ChevronRightIcon className="w-4 h-4" />
                 </button>
               </div>
-              <button className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-2xl text-xs font-bold text-slate-700 transition">
+              <button onClick={() => setCurrentDate(new Date())} className="px-4 py-2 bg-slate-50 hover:bg-slate-100 border border-slate-200/80 rounded-2xl text-xs font-bold text-slate-700 transition">
                 Today
               </button>
             </div>
 
             <h3 className="text-lg font-bold text-slate-800">
-              September <span className="text-slate-400 font-normal">2020</span>
+              {currentDate.toLocaleDateString('en-US', { month: 'long' })}{' '}
+              <span className="text-slate-400 font-normal">{currentDate.getFullYear()}</span>
             </h3>
 
             {/* View switcher pills */}
@@ -248,7 +228,7 @@ export default function CalendarPage() {
             <span>Sunday</span>
           </div>
 
-          {/* 35 Calendar Day Cells */}
+          {/* Calendar Day Cells */}
           <div className="grid grid-cols-7 border border-slate-100 rounded-2xl overflow-hidden divide-x divide-y divide-slate-100 bg-white">
             {days.map((item, index) => (
               <div
@@ -309,81 +289,149 @@ export default function CalendarPage() {
 
       {/* Add Event Modal */}
       {showAddEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-md w-full p-6 sm:p-8 relative">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/30 p-3 animate-fadeIn">
+          <div className="relative w-full max-w-[300px] rounded-md border border-slate-200 bg-white px-4 py-3 shadow-xl">
             <button
+              type="button"
               onClick={() => setShowAddEventModal(false)}
-              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition"
+              aria-label="Close new event form"
+              className="absolute right-3 top-3 rounded-lg p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-800"
             >
-              <CloseIcon className="w-5 h-5" />
+              <CloseIcon className="h-4 w-4" />
             </button>
 
-            <h3 className="text-lg font-bold text-slate-800 mb-4">Add New Event</h3>
+            <h3 className="mb-4 text-lg font-semibold text-slate-800">New Event</h3>
 
-            <div className="space-y-4">
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">
-                  Event Title
-                </label>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault()
+                saveEvent()
+              }}
+              className="space-y-3.5"
+            >
+              <label className="block text-[10px] font-medium text-slate-400">
+                Title
                 <input
+                  required
                   type="text"
                   value={newEventTitle}
                   onChange={(e) => setNewEventTitle(e.target.value)}
-                  placeholder="e.g. Design Sync Meeting"
-                  className="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
+                  placeholder="Event title"
+                  className="mt-1 w-full rounded-xl border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-[#16A34A]"
                 />
-              </div>
+              </label>
 
-              <div>
-                <label className="block text-xs font-semibold text-slate-500 mb-1">
-                  Category
+              <label className="block text-[10px] font-medium text-slate-400">
+                Description
+                <textarea
+                  value={newEventDescription}
+                  onChange={(event) => setNewEventDescription(event.target.value)}
+                  placeholder="Add a description"
+                  className="mt-1 min-h-[68px] w-full resize-y rounded-xl border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-[#16A34A]"
+                />
+              </label>
+
+              <fieldset>
+                <legend className="mb-1 text-[10px] font-medium text-slate-400">Time and Date</legend>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className={`flex min-w-0 overflow-hidden rounded-xl border border-slate-200 ${isAllDayEvent ? 'opacity-50' : ''}`}>
+                    <input
+                      aria-label="Event start time"
+                      type="time"
+                      required={!isAllDayEvent}
+                      disabled={isAllDayEvent}
+                      value={newEventTime}
+                      onChange={(event) => setNewEventTime(event.target.value)}
+                      className="min-w-0 w-[44%] border-r border-slate-200 px-1 py-2 text-[9px] text-slate-600 outline-none"
+                    />
+                    <input
+                      aria-label="Event start date"
+                      required
+                      type="date"
+                      value={newEventDate}
+                      onChange={(event) => {
+                        setNewEventDate(event.target.value)
+                        if (newEventEndDate < event.target.value) setNewEventEndDate(event.target.value)
+                      }}
+                      className="min-w-0 w-[56%] px-1 py-2 text-[9px] text-slate-600 outline-none"
+                    />
+                  </div>
+                  <div className={`flex min-w-0 overflow-hidden rounded-xl border border-slate-200 ${isAllDayEvent ? 'opacity-50' : ''}`}>
+                    <input
+                      aria-label="Event end time"
+                      type="time"
+                      required={!isAllDayEvent}
+                      disabled={isAllDayEvent}
+                      value={newEventEndTime}
+                      onChange={(event) => setNewEventEndTime(event.target.value)}
+                      className="min-w-0 w-[44%] border-r border-slate-200 px-1 py-2 text-[9px] text-slate-600 outline-none"
+                    />
+                    <input
+                      aria-label="Event end date"
+                      required
+                      type="date"
+                      min={newEventDate}
+                      value={newEventEndDate}
+                      onChange={(event) => setNewEventEndDate(event.target.value)}
+                      className="min-w-0 w-[56%] px-1 py-2 text-[9px] text-slate-600 outline-none"
+                    />
+                  </div>
+                </div>
+              </fieldset>
+
+              <div className="flex items-center gap-5">
+                <label className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isAllDayEvent}
+                    onChange={(event) => setIsAllDayEvent(event.target.checked)}
+                    className="h-3 w-3 accent-[#16A34A]"
+                  />
+                  All Day
                 </label>
-                <select
-                  value={newEventCategory}
-                  onChange={(e) => setNewEventCategory(e.target.value)}
-                  className="w-full px-4 py-2.5 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
+                <label className="flex items-center gap-1.5 text-[10px] text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={isRepeatingEvent}
+                    onChange={(event) => setIsRepeatingEvent(event.target.checked)}
+                    className="h-3 w-3 accent-[#16A34A]"
+                  />
+                  Repeat
+                </label>
+              </div>
+
+              <label className="block text-[10px] font-medium text-slate-400">
+                Calendar
+                <span className="relative mt-1 block">
+                  <span className={`pointer-events-none absolute left-2.5 top-1/2 h-2 w-2 -translate-y-1/2 rounded-sm ${
+                    newEventCategory === 'Important' ? 'bg-rose-400' :
+                      newEventCategory === 'Meeting' ? 'bg-teal-400' :
+                        newEventCategory === 'Event' ? 'bg-green-500' :
+                          newEventCategory === 'Work' ? 'bg-amber-400' : 'bg-slate-400'
+                  }`} />
+                  <select
+                    value={newEventCategory}
+                    onChange={(event) => setNewEventCategory(event.target.value)}
+                    className="w-full appearance-none rounded-xl border border-slate-200 bg-white py-2 pl-7 pr-3 text-[10px] text-slate-700 outline-none focus:border-[#16A34A]"
+                  >
+                    <option value="Important">Important</option>
+                    <option value="Meeting">Meeting</option>
+                    <option value="Event">Event</option>
+                    <option value="Work">Work</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </span>
+              </label>
+
+              <div className="flex justify-end pt-1">
+                <button
+                  type="submit"
+                  className="rounded-lg bg-[#16A34A] px-5 py-2 text-[10px] font-bold text-white shadow-sm transition hover:bg-[#15803d]"
                 >
-                  <option value="Meeting">Meeting (Teal)</option>
-                  <option value="Important">Important (Red)</option>
-                  <option value="Event">Event (Green)</option>
-                  <option value="Work">Work (Yellow)</option>
-                  <option value="Other">Other (Gray)</option>
-                </select>
+                  Create
+                </button>
               </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    defaultValue="2020-09-08"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-slate-500 mb-1">
-                    Time
-                  </label>
-                  <input
-                    type="time"
-                    defaultValue="10:00"
-                    className="w-full px-3 py-2 text-xs bg-slate-50 border border-slate-200 rounded-xl text-slate-700 focus:outline-none"
-                  />
-                </div>
-              </div>
-
-              <button
-                onClick={() => {
-                  alert(`Event "${newEventTitle || 'New Event'}" added to calendar!`)
-                  setShowAddEventModal(false)
-                }}
-                className="w-full py-3 bg-[#16A34A] hover:bg-[#15803d] text-white font-bold text-xs rounded-2xl shadow-sm transition mt-2"
-              >
-                Create Event
-              </button>
-            </div>
+            </form>
           </div>
         </div>
       )}

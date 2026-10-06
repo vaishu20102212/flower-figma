@@ -1,20 +1,32 @@
 import React, { useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   PlusIcon,
   SearchIcon,
 } from '../icons/FlowerIcons'
 
+const emptyContact = {
+  firstName: '',
+  lastName: '',
+  email: '',
+  countryCode: '+1',
+  phone: '',
+  role: '',
+  address: '',
+  birthDay: '',
+  birthMonth: '',
+  birthYear: '',
+  notes: '',
+  avatar: '',
+}
+
 export default function NotesContactsPage({ type = 'notes' }) {
   const isNotes = type === 'notes'
   const [searchQuery, setSearchQuery] = useState('')
   const [showModal, setShowModal] = useState(false)
+  const [editingContactId, setEditingContactId] = useState(null)
 
-  const [newContact, setNewContact] = useState({
-    name: '',
-    email: '',
-    role: '',
-    phone: '',
-  })
+  const [newContact, setNewContact] = useState(emptyContact)
 
   const [newNote, setNewNote] = useState({
     title: '',
@@ -88,18 +100,37 @@ export default function NotesContactsPage({ type = 'notes' }) {
   ])
 
   const openModal = () => {
+    setEditingContactId(null)
+    setNewContact(emptyContact)
     setShowModal(true)
   }
 
   const closeModal = () => {
     setShowModal(false)
+    setEditingContactId(null)
+  }
+
+  const openEditContact = (contact) => {
+    const phoneParts = contact.phone.match(/^(\+\d+)\s*(.*)$/)
+    const [firstName = '', ...lastNameParts] = contact.name.split(' ')
+    setEditingContactId(contact.id)
+    setNewContact({
+      ...emptyContact,
+      ...contact,
+      firstName: contact.firstName || firstName,
+      lastName: contact.lastName || lastNameParts.join(' '),
+      countryCode: contact.countryCode || phoneParts?.[1] || '+1',
+      phone: contact.phoneNumber || phoneParts?.[2] || contact.phone,
+    })
+    setShowModal(true)
   }
 
   const handleAddContact = (e) => {
     e.preventDefault()
 
     if (
-      !newContact.name.trim() ||
+      !newContact.firstName.trim() ||
+      !newContact.lastName.trim() ||
       !newContact.email.trim() ||
       !newContact.role.trim() ||
       !newContact.phone.trim()
@@ -108,19 +139,20 @@ export default function NotesContactsPage({ type = 'notes' }) {
     }
 
     const contact = {
-      id: Date.now(),
       ...newContact,
-      avatar: '/user-avatar.png',
+      id: editingContactId || Date.now(),
+      name: `${newContact.firstName.trim()} ${newContact.lastName.trim()}`,
+      phone: `${newContact.countryCode} ${newContact.phone.trim()}`,
+      phoneNumber: newContact.phone.trim(),
+      avatar: newContact.avatar || '/user-avatar.png',
     }
 
-    setContactsList((prev) => [...prev, contact])
+    setContactsList((prev) => editingContactId
+      ? prev.map((item) => item.id === editingContactId ? contact : item)
+      : [...prev, contact],
+    )
 
-    setNewContact({
-      name: '',
-      email: '',
-      role: '',
-      phone: '',
-    })
+    setNewContact(emptyContact)
 
     setShowModal(false)
   }
@@ -264,6 +296,14 @@ export default function NotesContactsPage({ type = 'notes' }) {
                   <p>{c.email}</p>
                   <p>{c.phone}</p>
                 </div>
+                <button
+                  type="button"
+                  onClick={() => openEditContact(c)}
+                  aria-label={`Edit ${c.name}`}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-slate-600 transition hover:border-emerald-300 hover:text-emerald-700"
+                >
+                  Edit Contact
+                </button>
               </div>
             ))}
 
@@ -272,30 +312,30 @@ export default function NotesContactsPage({ type = 'notes' }) {
       </div>
 
       {/* ================= MODAL ================= */}
-      {showModal && (
+      {showModal && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center overflow-y-auto bg-slate-900/40 p-3 backdrop-blur-sm"
           onClick={closeModal}
         >
           <div
-            className="w-full max-w-md bg-white rounded-3xl shadow-2xl p-6"
+            className={`my-auto max-h-[calc(100dvh-24px)] w-full overflow-y-auto bg-white shadow-2xl ${isNotes ? 'max-w-md rounded-3xl p-6' : 'max-w-[340px] rounded-md px-5 py-4'}`}
             onClick={(e) => e.stopPropagation()}
           >
 
             {/* Modal Header */}
-            <div className="flex items-center justify-between mb-6">
+            <div className={`flex items-center justify-between ${isNotes ? 'mb-6' : 'mb-4'}`}>
               <div>
                 <h2 className="text-xl font-bold text-slate-800">
-                  Add New {isNotes ? 'Note' : 'Contact'}
+                  {isNotes ? 'Add New Note' : editingContactId ? 'Edit Contact' : 'New Contact'}
                 </h2>
 
-                <p className="text-xs text-slate-400 mt-1">
-                  Enter the details below
-                </p>
+                {isNotes && <p className="mt-1 text-xs text-slate-400">Enter the details below</p>}
               </div>
 
               <button
+                type="button"
                 onClick={closeModal}
+                aria-label="Close form"
                 className="w-8 h-8 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-500 flex items-center justify-center"
               >
                 ×
@@ -304,77 +344,92 @@ export default function NotesContactsPage({ type = 'notes' }) {
 
             {/* CONTACT FORM */}
             {!isNotes ? (
-              <form onSubmit={handleAddContact} className="space-y-4">
+              <form onSubmit={handleAddContact} className="space-y-3">
+                <label className="mx-auto mb-1 flex h-16 w-16 cursor-pointer items-center justify-center overflow-hidden rounded-2xl border border-dashed border-slate-300 text-slate-500 hover:border-emerald-500 hover:text-emerald-600">
+                  {newContact.avatar ? (
+                    <img src={newContact.avatar} alt="Contact profile preview" className="h-full w-full object-cover" />
+                  ) : (
+                    <span aria-hidden="true" className="text-2xl leading-none">+</span>
+                  )}
+                  <input
+                    type="file"
+                    accept="image/*"
+                    aria-label="Upload contact photo"
+                    className="sr-only"
+                    onChange={(event) => {
+                      const file = event.target.files?.[0]
+                      if (file) setNewContact((current) => ({ ...current, avatar: URL.createObjectURL(file) }))
+                    }}
+                  />
+                </label>
 
-                <input
-                  type="text"
-                  placeholder="Full Name"
-                  value={newContact.name}
-                  onChange={(e) =>
-                    setNewContact({
-                      ...newContact,
-                      name: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
-                />
-
-                <input
-                  type="text"
-                  placeholder="Job Title"
-                  value={newContact.role}
-                  onChange={(e) =>
-                    setNewContact({
-                      ...newContact,
-                      role: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
-                />
-
-                <input
-                  type="email"
-                  placeholder="Email Address"
-                  value={newContact.email}
-                  onChange={(e) =>
-                    setNewContact({
-                      ...newContact,
-                      email: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
-                />
-
-                <input
-                  type="tel"
-                  placeholder="Phone Number"
-                  value={newContact.phone}
-                  onChange={(e) =>
-                    setNewContact({
-                      ...newContact,
-                      phone: e.target.value,
-                    })
-                  }
-                  className="w-full px-4 py-3 text-sm border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-[#B4F481]"
-                />
-
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeModal}
-                    className="flex-1 py-3 rounded-2xl border border-slate-200 text-sm font-semibold text-slate-600 hover:bg-slate-50"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    className="flex-1 py-3 rounded-2xl bg-[#16A34A] hover:bg-[#15803d] text-white text-sm font-bold"
-                  >
-                    Add Contact
-                  </button>
+                <div className="grid grid-cols-2 gap-3">
+                  <label className="block text-[9px] text-slate-500">
+                    First Name
+                    <input required value={newContact.firstName} onChange={(event) => setNewContact({ ...newContact, firstName: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-emerald-500" />
+                  </label>
+                  <label className="block text-[9px] text-slate-500">
+                    Last Name
+                    <input required value={newContact.lastName} onChange={(event) => setNewContact({ ...newContact, lastName: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-emerald-500" />
+                  </label>
                 </div>
 
+                <label className="block text-[9px] text-slate-500">
+                  Email
+                  <input required type="email" value={newContact.email} onChange={(event) => setNewContact({ ...newContact, email: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-emerald-500" />
+                </label>
+
+                <label className="block text-[9px] text-slate-500">
+                  Phone
+                  <span className="mt-1 flex overflow-hidden rounded-lg border border-slate-200 focus-within:border-emerald-500">
+                    <select aria-label="Country calling code" value={newContact.countryCode} onChange={(event) => setNewContact({ ...newContact, countryCode: event.target.value })} className="border-r border-slate-200 bg-slate-50 px-2 text-[10px] text-slate-700 outline-none">
+                      <option value="+1">+1</option>
+                      <option value="+44">+44</option>
+                      <option value="+91">+91</option>
+                      <option value="+61">+61</option>
+                    </select>
+                    <input required aria-label="Phone number" type="tel" value={newContact.phone} onChange={(event) => setNewContact({ ...newContact, phone: event.target.value })} className="min-w-0 flex-1 px-2.5 py-2 text-[10px] text-slate-700 outline-none" />
+                  </span>
+                </label>
+
+                <label className="block text-[9px] text-slate-500">
+                  Job Title
+                  <input required value={newContact.role} onChange={(event) => setNewContact({ ...newContact, role: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-emerald-500" />
+                </label>
+
+                <label className="block text-[9px] text-slate-500">
+                  Address
+                  <input value={newContact.address} onChange={(event) => setNewContact({ ...newContact, address: event.target.value })} className="mt-1 block w-full rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none focus:border-emerald-500" />
+                </label>
+
+                <fieldset>
+                  <legend className="mb-1 text-[9px] text-slate-500">Date of Birth</legend>
+                  <div className="grid grid-cols-3 gap-2">
+                    <select aria-label="Birth day" value={newContact.birthDay} onChange={(event) => setNewContact({ ...newContact, birthDay: event.target.value })} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] text-slate-600 outline-none">
+                      <option value="">Day</option>
+                      {Array.from({ length: 31 }, (_, index) => String(index + 1)).map((day) => <option key={day}>{day}</option>)}
+                    </select>
+                    <select aria-label="Birth month" value={newContact.birthMonth} onChange={(event) => setNewContact({ ...newContact, birthMonth: event.target.value })} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] text-slate-600 outline-none">
+                      <option value="">Month</option>
+                      {['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'].map((month) => <option key={month}>{month}</option>)}
+                    </select>
+                    <select aria-label="Birth year" value={newContact.birthYear} onChange={(event) => setNewContact({ ...newContact, birthYear: event.target.value })} className="w-full rounded-lg border border-slate-200 bg-white px-2 py-2 text-[10px] text-slate-600 outline-none">
+                      <option value="">Year</option>
+                      {Array.from({ length: 110 }, (_, index) => String(new Date().getFullYear() - index)).map((year) => <option key={year}>{year}</option>)}
+                    </select>
+                  </div>
+                </fieldset>
+
+                <label className="block text-[9px] text-slate-500">
+                  Notes
+                  <textarea value={newContact.notes} onChange={(event) => setNewContact({ ...newContact, notes: event.target.value })} rows={3} placeholder="Type something" className="mt-1 block w-full resize-y rounded-lg border border-slate-200 px-2.5 py-2 text-[10px] text-slate-700 outline-none placeholder:text-slate-400 focus:border-emerald-500" />
+                </label>
+
+                <div className="flex justify-end pt-1">
+                  <button type="submit" className="rounded-lg bg-[#16A34A] px-4 py-2 text-[10px] font-bold text-white hover:bg-[#15803d]">
+                    {editingContactId ? 'Save Changes' : 'Add Contact'}
+                  </button>
+                </div>
               </form>
             ) : (
 
@@ -444,7 +499,8 @@ export default function NotesContactsPage({ type = 'notes' }) {
               </form>
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   )

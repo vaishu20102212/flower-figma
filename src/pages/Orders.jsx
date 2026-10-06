@@ -1,21 +1,46 @@
 import React, { useState } from 'react'
 import { ordersList } from '../data/mockData'
+import ExportMenu from '../components/common/ExportMenu'
 import {
   SearchIcon,
-  DownloadIcon,
   ChevronDownIcon,
   MoreVerticalIcon,
   CheckIcon,
   CloseIcon,
 } from '../icons/FlowerIcons'
 
+const getOrderPricing = (total, taxRule = 'US-AL Rate (4%)') => {
+  const includedPrice = Number(total.replace(/[^0-9.]/g, ''))
+
+  if (!Number.isFinite(includedPrice)) {
+    return null
+  }
+
+  const taxRate = taxRule === 'Tax exempt'
+    ? 0
+    : (Number(taxRule.match(/\(([\d.]+)%\)/)?.[1]) || 4) / 100
+  const excludedPrice = includedPrice / (1 + taxRate)
+  const taxAmount = includedPrice - excludedPrice
+  const formatPrice = (amount) => `$${amount.toFixed(2)}`
+
+  return {
+    excludedPrice: formatPrice(excludedPrice),
+    taxAmount: formatPrice(taxAmount),
+    includedPrice: formatPrice(includedPrice),
+  }
+}
+
 export default function Orders() {
   const [activeTab, setActiveTab] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
   const [selectedOrders, setSelectedOrders] = useState([2, 3, 4])
   const [selectedOrderDetails, setSelectedOrderDetails] = useState(null)
+  const [orders, setOrders] = useState(ordersList)
+  const [orderDetailsTab, setOrderDetailsTab] = useState('Order Details')
+  const [isBillingAddressOpen, setIsBillingAddressOpen] = useState(true)
+  const [isShippingAddressOpen, setIsShippingAddressOpen] = useState(false)
 
-  const filteredOrders = ordersList.filter((ord) => {
+  const filteredOrders = orders.filter((ord) => {
     const matchesTab =
       activeTab === 'All' ||
       (activeTab === 'Pending' && ord.status === 'Processing') ||
@@ -27,6 +52,33 @@ export default function Orders() {
       ord.payment.toLowerCase().includes(searchQuery.toLowerCase())
     return matchesTab && matchesSearch
   })
+  const selectedOrderPricing = selectedOrderDetails
+    ? getOrderPricing(selectedOrderDetails.total, selectedOrderDetails.taxRule)
+    : null
+
+  const openOrderDetails = (order) => {
+    setSelectedOrderDetails(order)
+    setOrderDetailsTab('Order Details')
+    setIsBillingAddressOpen(true)
+    setIsShippingAddressOpen(false)
+  }
+
+  const updateSelectedOrder = (field, value) => {
+    setSelectedOrderDetails((current) => ({ ...current, [field]: value }))
+    setOrders((currentOrders) => currentOrders.map((order) =>
+      order.id === selectedOrderDetails.id
+        ? { ...order, [field]: value, ...(field === 'fulfillmentStatus' ? { status: value } : {}) }
+        : order,
+    ))
+  }
+
+  const openFirstOrderInvoice = () => {
+    const order = filteredOrders[0]
+    if (!order) return
+
+    openOrderDetails(order)
+    setOrderDetailsTab('Invoice')
+  }
 
   const toggleSelectAll = () => {
     if (selectedOrders.length === filteredOrders.length) {
@@ -53,10 +105,32 @@ export default function Orders() {
         </h1>
 
         <div className="flex items-center gap-3">
-          <button className="flex items-center gap-2 px-4 py-2 bg-white hover:bg-slate-50 text-xs font-semibold text-slate-700 rounded-2xl border border-slate-200/80 shadow-sm transition">
-            <DownloadIcon className="w-4 h-4 text-slate-500" />
-            <span>Export</span>
-            <ChevronDownIcon className="w-3.5 h-3.5 text-slate-400" />
+          <ExportMenu
+            title="Orders"
+            filename="orders"
+            rows={filteredOrders}
+            columns={[
+              { label: 'Order No.', value: (order) => order.orderNo },
+              { label: 'Customer', value: (order) => order.customer },
+              { label: 'Product', value: (order) => order.productName || '' },
+              { label: 'Date', value: (order) => order.date },
+              { label: 'Total', value: (order) => order.total },
+              { label: 'Payment', value: (order) => order.payment },
+              { label: 'Status', value: (order) => order.status },
+            ]}
+          />
+          <button
+            type="button"
+            onClick={openFirstOrderInvoice}
+            disabled={filteredOrders.length === 0}
+            aria-label="View order invoice"
+            title={filteredOrders.length ? 'View first order invoice' : 'No orders to show'}
+            className="flex h-10 w-10 items-center justify-center rounded-2xl bg-[#16A34A] text-white shadow-sm transition hover:bg-[#15803d]"
+          >
+            <svg aria-hidden="true" viewBox="0 0 20 20" className="h-5 w-5 fill-none stroke-current stroke-[1.7]">
+              <path d="M6 2.75h5l3.25 3.5v11H6a1.25 1.25 0 0 1-1.25-1.25V4A1.25 1.25 0 0 1 6 2.75Z" />
+              <path d="M11 2.75v3.5h3.25M7.5 10h5M7.5 13h5" />
+            </svg>
           </button>
         </div>
       </div>
@@ -147,7 +221,7 @@ export default function Orders() {
                 return (
                   <tr
                     key={order.id}
-                    onClick={() => setSelectedOrderDetails(order)}
+                    onClick={() => openOrderDetails(order)}
                     className={`hover:bg-slate-50/80 transition cursor-pointer ${
                       isSelected ? 'bg-emerald-50/20' : ''
                     }`}
@@ -256,64 +330,259 @@ export default function Orders() {
 
       {/* Order Details Drawer / Modal */}
       {selectedOrderDetails && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/50 backdrop-blur-sm animate-fadeIn">
-          <div className="bg-white rounded-3xl shadow-2xl border border-slate-100 max-w-lg w-full p-6 sm:p-8 relative">
-            <button
-              onClick={() => setSelectedOrderDetails(null)}
-              className="absolute top-6 right-6 p-2 rounded-xl text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition"
-            >
-              <CloseIcon className="w-5 h-5" />
-            </button>
-
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <img
-                  src={selectedOrderDetails.avatar}
-                  alt={selectedOrderDetails.customer}
-                  className="w-14 h-14 rounded-2xl object-cover ring-2 ring-emerald-500/20"
-                />
-                <div>
-                  <h3 className="text-lg font-bold text-slate-800">
-                    Order {selectedOrderDetails.orderNo}
-                  </h3>
-                  <p className="text-xs text-slate-400">
-                    Customer: <strong className="text-slate-700">{selectedOrderDetails.customer}</strong>
-                  </p>
-                </div>
-              </div>
-
-              <div className="bg-slate-50 rounded-2xl p-4 space-y-2 text-xs">
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Order Date:</span>
-                  <span className="font-semibold text-slate-700">{selectedOrderDetails.date}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Payment Method:</span>
-                  <span className="font-semibold text-slate-700">{selectedOrderDetails.payment}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-slate-400">Status:</span>
-                  <span className="font-bold text-emerald-600">{selectedOrderDetails.status}</span>
-                </div>
-                <div className="flex justify-between pt-2 border-t border-slate-200">
-                  <span className="font-bold text-slate-700">Total Amount:</span>
-                  <span className="text-base font-black text-slate-900">{selectedOrderDetails.total}</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-3">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-3 sm:p-5 animate-fadeIn">
+        <div className="relative w-full max-w-[660px] overflow-hidden rounded-xl border border-slate-200 bg-white shadow-2xl">
+          <div className="flex items-center justify-between border-b border-slate-200 px-4 sm:px-5">
+            <div className="flex min-w-0 overflow-x-auto">
+              {['Order Details', 'Products', 'Invoice'].map((tab) => (
                 <button
-                  onClick={() => {
-                    alert(`Tracking details generated for order ${selectedOrderDetails.orderNo}`)
-                    setSelectedOrderDetails(null)
-                  }}
-                  className="w-full py-3 bg-[#16A34A] hover:bg-[#15803d] text-white font-bold text-xs rounded-2xl shadow-sm transition"
+                  key={tab}
+                  type="button"
+                  onClick={() => setOrderDetailsTab(tab)}
+                  aria-current={orderDetailsTab === tab ? 'page' : undefined}
+                  className={`shrink-0 border-b-2 px-3 py-4 text-[9px] font-semibold uppercase transition ${
+                    orderDetailsTab === tab
+                      ? 'border-[#16A34A] text-[#15803D]'
+                      : 'border-transparent text-slate-500 hover:text-slate-800'
+                  }`}
                 >
-                  Track Shipment
+                  {tab}
                 </button>
-              </div>
+              ))}
             </div>
+            <button
+              type="button"
+              onClick={() => setSelectedOrderDetails(null)}
+              aria-label="Close order details"
+              className="ml-3 rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-800"
+            >
+              <CloseIcon className="h-4 w-4" />
+            </button>
           </div>
+
+          <div className="max-h-[calc(100vh-100px)] overflow-y-auto p-4 sm:p-5">
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-lg font-semibold text-slate-800">
+                {orderDetailsTab === 'Invoice' ? 'Invoice' : 'Orders'}
+                <span className="ml-2 text-slate-400">{selectedOrderDetails.orderNo}</span>
+              </h2>
+              {orderDetailsTab !== 'Products' && (
+                <ExportMenu
+                  title={orderDetailsTab === 'Invoice' ? `Invoice ${selectedOrderDetails.orderNo}` : `Order ${selectedOrderDetails.orderNo}`}
+                  filename={`${orderDetailsTab === 'Invoice' ? 'invoice' : 'order'}-${selectedOrderDetails.orderNo.replace('#', '')}`}
+                  rows={[selectedOrderDetails]}
+                  columns={[
+                    { label: 'Order No.', value: (order) => order.orderNo },
+                    { label: 'Customer', value: (order) => order.customer },
+                    { label: 'Product', value: (order) => order.productName || 'Product order' },
+                    { label: 'Date', value: (order) => order.date },
+                    { label: 'Total', value: (order) => order.total },
+                    { label: 'Payment', value: (order) => order.payment },
+                    { label: 'Fulfilment', value: (order) => order.fulfillmentStatus || order.status },
+                    { label: 'Payment Status', value: (order) => order.paymentStatus || (order.status === 'Cancelled' ? 'Refunded' : 'Paid') },
+                  ]}
+                />
+              )}
+            </div>
+
+            {orderDetailsTab === 'Order Details' && (
+              <div className="space-y-4">
+                <section>
+                  <h3 className="mb-2 text-sm font-semibold text-slate-700">Customer</h3>
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[550px] text-left text-[9px]">
+                      <thead>
+                        <tr className="border-b border-slate-200 uppercase text-slate-400">
+                          {['Name', 'Email', 'Phone', 'Location'].map((heading) => <th key={heading} className="px-2 py-2 font-semibold">{heading}</th>)}
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="text-slate-600">
+                          <td className="px-2 py-2.5">
+                            <span className="flex items-center gap-2 whitespace-nowrap">
+                              <img src={selectedOrderDetails.avatar} alt="" className="h-5 w-5 rounded-full object-cover" />
+                              {selectedOrderDetails.customer}
+                            </span>
+                          </td>
+                          <td className="px-2 py-2.5">{selectedOrderDetails.email || 'example@mail.com'}</td>
+                          <td className="px-2 py-2.5 whitespace-nowrap">{selectedOrderDetails.phone || '+1(070) 4567-8800'}</td>
+                          <td className="px-2 py-2.5 whitespace-nowrap">{selectedOrderDetails.address || '993 E. Brewer St. Holtsville'}</td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </section>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <section className="space-y-3">
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-slate-700">Payment method</h3>
+                      <select value={selectedOrderDetails.payment} onChange={(event) => updateSelectedOrder('payment', event.target.value)} className="w-full max-w-40 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[10px] text-slate-600 outline-none focus:border-[#16A34A]">
+                        {['Credit Card', 'PayPal', 'Payoneer', 'Cash'].map((method) => <option key={method}>{method}</option>)}
+                      </select>
+                      <p className="mt-2 text-[9px] text-slate-500">Transaction ID: <span className="text-slate-700">{selectedOrderDetails.transactionId || '000001-THXQ'}</span></p>
+                      <p className="mt-1 text-[9px] text-slate-500">Amount: <span className="text-slate-700">{selectedOrderDetails.total}</span></p>
+                      {selectedOrderDetails.payment === 'Credit Card' && (
+                        <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
+                          <h4 className="text-[9px] font-semibold text-slate-700">Card details</h4>
+                          <p className="mt-1.5 text-[9px] text-slate-500">
+                            Cardholder: <span className="text-slate-700">{selectedOrderDetails.cardholder || selectedOrderDetails.customer}</span>
+                          </p>
+                          <p className="mt-1 text-[9px] text-slate-500">
+                            Card number: <span className="text-slate-700">
+                              {selectedOrderDetails.cardLast4 ? `•••• •••• •••• ${selectedOrderDetails.cardLast4}` : 'Last four digits not available'}
+                            </span>
+                          </p>
+                          {selectedOrderDetails.cardExpiry && (
+                            <p className="mt-1 text-[9px] text-slate-500">
+                              Expiry: <span className="text-slate-700">{selectedOrderDetails.cardExpiry}</span>
+                            </p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div>
+                      <h3 className="mb-2 text-sm font-semibold text-slate-700">Shipping method</h3>
+                      <select value={selectedOrderDetails.shippingMethod || 'Carrier'} onChange={(event) => updateSelectedOrder('shippingMethod', event.target.value)} className="w-full max-w-40 rounded-xl border border-slate-200 bg-white px-2.5 py-2 text-[10px] text-slate-600 outline-none focus:border-[#16A34A]">
+                        {['Carrier', 'Standard', 'Express', 'Pickup'].map((method) => <option key={method}>{method}</option>)}
+                      </select>
+                      <p className="mt-2 text-[9px] text-slate-500">Tracking Code: <span className="text-slate-700">{selectedOrderDetails.trackingCode || 'FX-012345-6'}</span></p>
+                      <p className="mt-1 text-[9px] text-slate-500">Date: <span className="text-slate-700">{selectedOrderDetails.date}</span></p>
+                    </div>
+                  </section>
+                  <section className="space-y-2 rounded-xl bg-slate-50 p-3">
+                    <label className="flex items-center justify-between gap-2 text-[9px] font-medium text-slate-600">
+                      Fulfilment status
+                      <select value={selectedOrderDetails.fulfillmentStatus || selectedOrderDetails.status} onChange={(event) => updateSelectedOrder('fulfillmentStatus', event.target.value)} className="max-w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[9px] outline-none">
+                        {['Processing', 'Shipped', 'Delivered', 'Cancelled'].map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </label>
+                    <label className="flex items-center justify-between gap-2 text-[9px] font-medium text-slate-600">
+                      Payment status
+                      <select value={selectedOrderDetails.paymentStatus || (selectedOrderDetails.status === 'Cancelled' ? 'Refunded' : 'Paid')} onChange={(event) => updateSelectedOrder('paymentStatus', event.target.value)} className="max-w-28 rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[9px] outline-none">
+                        {['Pending', 'Paid', 'Refunded'].map((status) => <option key={status}>{status}</option>)}
+                      </select>
+                    </label>
+                  </section>
+                </div>
+
+                <div className="space-y-2">
+                  <section className="overflow-hidden rounded-xl border border-slate-200">
+                    <button type="button" onClick={() => setIsBillingAddressOpen((open) => !open)} aria-expanded={isBillingAddressOpen} className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      Billing address
+                      <ChevronDownIcon className={`h-3.5 w-3.5 transition ${isBillingAddressOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isBillingAddressOpen && (
+                      <div className="grid gap-x-4 gap-y-1 border-t border-slate-100 px-3.5 py-3 text-[9px] text-slate-500 sm:grid-cols-3">
+                        <p>First name: <span className="text-slate-700">{selectedOrderDetails.customer.split(' ')[0]}</span></p>
+                        <p>State/Region: <span className="text-slate-700">{selectedOrderDetails.state || 'New York'}</span></p>
+                        <p>Phone: <span className="text-slate-700">{selectedOrderDetails.phone || '+1(070) 4567-8800'}</span></p>
+                        <p>Last name: <span className="text-slate-700">{selectedOrderDetails.customer.split(' ').slice(1).join(' ')}</span></p>
+                        <p>City: <span className="text-slate-700">{selectedOrderDetails.city || 'New York'}</span></p>
+                        <p>Email: <span className="text-slate-700">{selectedOrderDetails.email || 'example@mail.com'}</span></p>
+                        <p className="sm:col-span-2">Address: <span className="text-slate-700">{selectedOrderDetails.address || '993 E. Brewer St. Holtsville'}</span></p>
+                        <p>Postcode: <span className="text-slate-700">{selectedOrderDetails.postalCode || '11742'}</span></p>
+                        <p>Country: <span className="text-slate-700">{selectedOrderDetails.country || 'United States'}</span></p>
+                      </div>
+                    )}
+                  </section>
+
+                  <section className="overflow-hidden rounded-xl border border-slate-200">
+                    <button type="button" onClick={() => setIsShippingAddressOpen((open) => !open)} aria-expanded={isShippingAddressOpen} className="flex w-full items-center justify-between px-3.5 py-2.5 text-left text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      Shipping address
+                      <ChevronDownIcon className={`h-3.5 w-3.5 transition ${isShippingAddressOpen ? 'rotate-180' : ''}`} />
+                    </button>
+                    {isShippingAddressOpen && (
+                      <div className="grid gap-x-4 gap-y-1 border-t border-slate-100 px-3.5 py-3 text-[9px] text-slate-500 sm:grid-cols-3">
+                        <p>Customer: <span className="text-slate-700">{selectedOrderDetails.customer}</span></p>
+                        <p>Phone: <span className="text-slate-700">{selectedOrderDetails.phone || '+1(070) 4567-8800'}</span></p>
+                        <p>Email: <span className="text-slate-700">{selectedOrderDetails.email || 'example@mail.com'}</span></p>
+                        <p className="sm:col-span-2">Address: <span className="text-slate-700">{selectedOrderDetails.shippingAddress || selectedOrderDetails.address || '993 E. Brewer St. Holtsville'}</span></p>
+                        <p>City/Region: <span className="text-slate-700">{selectedOrderDetails.city || 'New York'}</span></p>
+                        <p>Country: <span className="text-slate-700">{selectedOrderDetails.country || 'United States'}</span></p>
+                        <p>Postcode: <span className="text-slate-700">{selectedOrderDetails.postalCode || '11742'}</span></p>
+                      </div>
+                    )}
+                  </section>
+                </div>
+              </div>
+            )}
+
+            {orderDetailsTab === 'Products' && (
+              <div className="overflow-x-auto rounded-xl border border-slate-200">
+                <table className="w-full min-w-[440px] text-left text-[10px]">
+                  <thead className="bg-slate-50 text-slate-500">
+                    <tr>{['Product', 'Product No.', 'Quantity', 'Price', 'Total'].map((heading) => <th key={heading} className="px-3 py-2.5 font-semibold">{heading}</th>)}</tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t border-slate-100 text-slate-700">
+                      <td className="px-3 py-3 font-medium">{selectedOrderDetails.productName || 'Product order'}</td>
+                      <td className="px-3 py-3">{selectedOrderDetails.productNo || '—'}</td>
+                      <td className="px-3 py-3">{selectedOrderDetails.quantity || 1}</td>
+                      <td className="px-3 py-3">{selectedOrderDetails.unitPrice || selectedOrderDetails.total}</td>
+                      <td className="px-3 py-3 font-semibold">{selectedOrderDetails.total}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {orderDetailsTab === 'Invoice' && (
+              <section className="space-y-6 rounded-xl border border-slate-100 bg-white p-4 sm:p-6">
+                <div className="flex flex-wrap items-center justify-between gap-5">
+                  <div className="flex items-center gap-5">
+                    <div className="flex h-24 w-24 shrink-0 flex-col items-center justify-center bg-[#ff7775] text-center text-white">
+                      <span className="text-xs font-bold">INVOICE</span>
+                      <span className="mt-1 text-xs">{selectedOrderDetails.orderNo}</span>
+                    </div>
+                    <div className="space-y-1 text-[10px] text-slate-500">
+                      <p className="font-semibold uppercase text-slate-700">Flower</p>
+                      <p>Flower Dashboard</p>
+                      <p>{selectedOrderDetails.address || 'Customer address on file'}</p>
+                      <p>{selectedOrderDetails.email || 'Customer email on file'}</p>
+                    </div>
+                  </div>
+                  <div className="text-right text-[10px] text-slate-500">
+                    <p>{selectedOrderDetails.date}</p>
+                    <p className="mt-3 font-bold tracking-wide text-slate-700">FLOWER</p>
+                  </div>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full min-w-[480px] text-left text-[10px]">
+                    <thead>
+                      <tr className="border-b border-slate-200 uppercase text-slate-400">
+                        {['Product', 'Price', 'Quantity', 'Total'].map((heading) => (
+                          <th key={heading} className="px-2 py-3 font-medium">{heading}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-b border-slate-100 text-slate-600">
+                        <td className="px-2 py-3">{selectedOrderDetails.productName || 'Product order'}</td>
+                        <td className="px-2 py-3">{selectedOrderDetails.unitPrice || selectedOrderDetails.total}</td>
+                        <td className="px-2 py-3">{selectedOrderDetails.quantity || 1}</td>
+                        <td className="px-2 py-3">{selectedOrderDetails.total}</td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="ml-auto max-w-52 space-y-2 text-[10px]">
+                  <div className="flex justify-between text-slate-500">
+                    <span>Subtotal</span><span>{selectedOrderPricing?.excludedPrice || selectedOrderDetails.total}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Tax</span><span>{selectedOrderPricing?.taxAmount || '$0.00'}</span>
+                  </div>
+                  <div className="flex justify-between border-t border-slate-200 pt-3 font-bold text-slate-800">
+                    <span>Total</span><span>{selectedOrderPricing?.includedPrice || selectedOrderDetails.total}</span>
+                  </div>
+                </div>
+              </section>
+            )}
+          </div>
+        </div>
         </div>
       )}
     </div>

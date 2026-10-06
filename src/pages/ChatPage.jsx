@@ -30,6 +30,48 @@ export default function ChatPage() {
     },
   ])
   const [inputText, setInputText] = useState('')
+  const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false)
+  const [emojiSearch, setEmojiSearch] = useState('')
+  const [activeEmojiCategory, setActiveEmojiCategory] = useState('Smileys')
+
+  const emojiCategories = {
+    Smileys: ['😀', '😃', '😄', '😁', '😆', '😅', '😂', '🤣', '😊', '😇', '🙂', '🙃', '😉', '😍', '🥰', '😘', '😋', '😎', '🤔', '😭', '😡', '🥳', '🤩', '😴'],
+    Nature: ['🐶', '🐱', '🐭', '🐹', '🐰', '🦊', '🐻', '🐼', '🐨', '🐯', '🦁', '🐮', '🐸', '🐵', '🐔', '🐧', '🦋', '🌷', '🌸', '🌻', '🌹', '🌈', '☀️', '🌙'],
+    Food: ['🍏', '🍎', '🍐', '🍊', '🍋', '🍌', '🍉', '🍇', '🍓', '🫐', '🍒', '🍑', '🥭', '🍍', '🥑', '🍕', '🍔', '🍟', '🍰', '🍩', '☕', '🧁', '🍪', '🍫'],
+    Activity: ['⚽', '🏀', '🏈', '⚾', '🎾', '🏐', '🏉', '🎱', '🏓', '🏸', '🥊', '🥋', '⛳', '🎯', '🎮', '🎲', '🎸', '🎹', '🎤', '🎨', '🏆', '🥇', '🎳', '🪁'],
+    Travel: ['🚗', '🚕', '🚌', '🚎', '🏎️', '🚓', '🚑', '🚒', '🚲', '🛵', '🚆', '✈️', '🚀', '🚁', '⛵', '🚢', '🏠', '🏖️', '🏕️', '🌋', '🌍', '🌃', '🗽', '🗺️'],
+    Objects: ['⌚', '📱', '💻', '⌨️', '🖥️', '📷', '🎥', '💡', '🔦', '📕', '📚', '✏️', '🖊️', '📎', '🔒', '🔑', '🎁', '🎈', '🧸', '💐', '📦', '📌', '🧹', '🪴'],
+    Symbols: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💔', '💕', '💯', '💢', '💬', '💤', '♻️', '✅', '❌', '⭐', '✨', '⚡', '🔥', '🎵', '🔔', '➕'],
+  }
+  const emojiSearchTerms = {
+    smile: emojiCategories.Smileys,
+    happy: emojiCategories.Smileys,
+    laugh: ['😆', '😂', '🤣', '😅'],
+    heart: ['❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍', '💕', '💔'],
+    animal: emojiCategories.Nature.slice(0, 16),
+    flower: ['🌷', '🌸', '🌻', '🌹'],
+    plant: ['🌷', '🌸', '🌻', '🌹', '🪴'],
+    fruit: emojiCategories.Food.slice(0, 15),
+    food: emojiCategories.Food,
+    sport: emojiCategories.Activity,
+    music: ['🎸', '🎹', '🎤', '🎵'],
+    travel: emojiCategories.Travel,
+    car: ['🚗', '🚕', '🏎️', '🚓'],
+    plane: ['✈️', '🚀', '🚁'],
+    object: emojiCategories.Objects,
+    symbol: emojiCategories.Symbols,
+    nature: emojiCategories.Nature,
+    activity: emojiCategories.Activity,
+  }
+  const searchTerm = emojiSearch.trim().toLowerCase()
+  const visibleEmojis = searchTerm
+    ? Object.values(emojiCategories).flat().filter((emoji) =>
+      emoji.includes(searchTerm) ||
+      Object.entries(emojiSearchTerms).some(([term, matches]) =>
+        term.startsWith(searchTerm) && matches.includes(emoji),
+      ),
+    )
+    : emojiCategories[activeEmojiCategory]
 
   const handleSendMessage = () => {
     if (!inputText.trim()) return
@@ -41,6 +83,12 @@ export default function ChatPage() {
     }
     setMessages([...messages, newMsg])
     setInputText('')
+  }
+
+  const addEmoji = (emoji) => {
+    setInputText((current) => `${current}${emoji}`)
+    setIsEmojiPickerOpen(false)
+    setEmojiSearch('')
   }
 
   return (
@@ -179,12 +227,83 @@ export default function ChatPage() {
               }}
               className="flex items-center gap-2"
             >
-              <button
-                type="button"
-                className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
-              >
-                <PaperclipIcon className="w-4 h-4" />
-              </button>
+              <div className="relative flex items-center gap-1">
+                <button
+                  type="button"
+                  aria-label="Attach file"
+                  className="p-2.5 text-slate-400 hover:text-slate-700 hover:bg-slate-100 rounded-xl transition"
+                >
+                  <PaperclipIcon className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
+                  aria-label="Open emoji picker"
+                  aria-expanded={isEmojiPickerOpen}
+                  onClick={() => setIsEmojiPickerOpen((open) => !open)}
+                  className="rounded-xl p-2 text-lg leading-none text-slate-500 transition hover:bg-slate-100 hover:text-slate-700"
+                >
+                  😊
+                </button>
+                {isEmojiPickerOpen && (
+                  <div className="absolute bottom-12 left-0 z-20 w-64 rounded-xl border border-slate-200 bg-white p-2.5 shadow-xl">
+                    <label className="relative block">
+                      <SearchIcon className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400" />
+                      <input
+                        autoFocus
+                        type="search"
+                        value={emojiSearch}
+                        onChange={(event) => setEmojiSearch(event.target.value)}
+                        placeholder="Search..."
+                        aria-label="Search emojis"
+                        className="w-full rounded-full bg-slate-100 py-1.5 pl-8 pr-3 text-[10px] text-slate-700 outline-none focus:ring-1 focus:ring-emerald-300"
+                      />
+                    </label>
+                    <p className="mb-1 mt-2.5 text-[9px] font-medium uppercase tracking-wide text-slate-400">
+                      {emojiSearch.trim() ? 'Results' : activeEmojiCategory}
+                    </p>
+                    <div className="grid max-h-36 grid-cols-8 gap-0.5 overflow-y-auto">
+                      {visibleEmojis.map((emoji, index) => (
+                        <button
+                          key={`${emoji}-${index}`}
+                          type="button"
+                          onClick={() => addEmoji(emoji)}
+                          aria-label={`Add ${emoji} emoji`}
+                          className="flex h-7 w-7 items-center justify-center rounded-md text-base hover:bg-slate-100"
+                        >
+                          {emoji}
+                        </button>
+                      ))}
+                      {visibleEmojis.length === 0 && (
+                        <p className="col-span-8 py-4 text-center text-[10px] text-slate-400">No emojis found</p>
+                      )}
+                    </div>
+                    {!emojiSearch.trim() && (
+                      <div className="mt-2 flex justify-between border-t border-slate-100 pt-1.5">
+                        {[
+                          ['Smileys', '☺'],
+                          ['Nature', '♧'],
+                          ['Food', '♡'],
+                          ['Activity', '⚽'],
+                          ['Travel', '♧'],
+                          ['Objects', '▣'],
+                          ['Symbols', '⚑'],
+                        ].map(([category, icon]) => (
+                          <button
+                            key={category}
+                            type="button"
+                            onClick={() => setActiveEmojiCategory(category)}
+                            aria-label={`${category} emojis`}
+                            aria-pressed={activeEmojiCategory === category}
+                            className={`h-6 w-6 rounded-md text-xs ${activeEmojiCategory === category ? 'bg-emerald-50 text-emerald-600' : 'text-slate-400 hover:bg-slate-100'}`}
+                          >
+                            {icon}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
 
               <input
                 type="text"

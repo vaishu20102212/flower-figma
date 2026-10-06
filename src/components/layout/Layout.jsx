@@ -1,9 +1,10 @@
 import React, { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useNavigate } from 'react-router-dom'
 import Sidebar from './Sidebar'
 import Header from './Header'
 
 export default function Layout() {
+  const navigate = useNavigate()
   const [profile, setProfile] = useState(() => ({
     name: localStorage.getItem('flower-profile-name') || 'Felecia Brown',
     email: localStorage.getItem('flower-profile-email') || 'example@mail.com',
@@ -14,7 +15,6 @@ export default function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(() => window.matchMedia('(min-width: 1024px)').matches)
   const [focusSearchRequest, setFocusSearchRequest] = useState(0)
   const [isLocked, setIsLocked] = useState(false)
-  const [isLoggedOut, setIsLoggedOut] = useState(false)
   const [headerTab, setHeaderTab] = useState('settings')
 
   const saveProfile = (updatedProfile) => {
@@ -28,24 +28,6 @@ export default function Layout() {
       localStorage.removeItem('flower-profile-picture')
     }
     setProfile(updatedProfile)
-  }
-
-  if (isLoggedOut) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8FAFC] p-6 text-center">
-        <div className="max-w-sm rounded-3xl border border-slate-100 bg-white p-8 shadow-xl">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-[#B4F481] text-2xl">🌸</div>
-          <h1 className="text-xl font-extrabold text-slate-800">You are logged out</h1>
-          <p className="mt-2 text-sm text-slate-500">Sign in again to continue managing your workspace.</p>
-          <button
-            onClick={() => setIsLoggedOut(false)}
-            className="mt-6 rounded-2xl bg-[#14532D] px-5 py-2.5 text-sm font-bold text-white hover:bg-[#166534]"
-          >
-            Sign In
-          </button>
-        </div>
-      </div>
-    )
   }
 
   return (
@@ -70,7 +52,10 @@ export default function Layout() {
           }}
           profile={profile}
           onLockScreen={() => setIsLocked(true)}
-          onLogout={() => setIsLoggedOut(true)}
+          onLogout={() => {
+            sessionStorage.removeItem('flower-authenticated')
+            navigate('/login')
+          }}
         />
         
         <main className="flex-1 overflow-y-auto p-4 md:p-6 lg:p-8 bg-[#F8FAFC]">
