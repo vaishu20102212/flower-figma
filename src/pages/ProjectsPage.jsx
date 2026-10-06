@@ -89,6 +89,8 @@ export default function ProjectsPage() {
   const [timelineZoom, setTimelineZoom] = useState(1)
   const [collapsedLists, setCollapsedLists] = useState([])
   const [timelineLists, setTimelineLists] = useState(initialTimelineLists)
+  const [timelineTaskMenu, setTimelineTaskMenu] = useState(null)
+  const [timelineTaskEditor, setTimelineTaskEditor] = useState(null)
   const [openProjectMenu, setOpenProjectMenu] = useState(null)
   const [projectAction, setProjectAction] = useState(null)
   const [actionValues, setActionValues] = useState({
@@ -183,6 +185,34 @@ export default function ProjectsPage() {
       list.status === appliedFilters.status || list.children.length > 0
     return matchesSearch && matchesMember && matchesStatus
   })
+
+  const openTimelineTaskMenu = (list, task) => {
+    setTimelineTaskMenu({ listId: list.id, taskId: task.id })
+  }
+
+  const openTimelineTaskEditor = (list) => {
+    setTimelineTaskMenu(null)
+    setTimelineTaskEditor({
+      listId: list.id,
+      title: list.name,
+      color: list.color,
+      progress: list.progress,
+      members: list.members,
+      start: list.start,
+      duration: list.duration,
+      taskCount: list.children.length,
+    })
+  }
+
+  const saveTimelineTaskEditor = () => {
+    if (!timelineTaskEditor) return
+    setTimelineLists((current) => current.map((list) => (
+      list.id === timelineTaskEditor.listId
+        ? { ...list, name: timelineTaskEditor.title.trim() || list.name, color: timelineTaskEditor.color }
+        : list
+    )))
+    setTimelineTaskEditor(null)
+  }
 
   const addTimelineList = () => {
     const id = `list-${Date.now()}`
@@ -542,7 +572,7 @@ export default function ProjectsPage() {
               if (!listTasks.length) return null
 
               return listTasks.map((task) => (
-                <div key={task.id} className="grid min-h-[42px] grid-cols-[190px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0">
+                <div key={task.id} className="relative grid min-h-[42px] grid-cols-[190px_minmax(0,1fr)] border-b border-slate-100 last:border-b-0">
                   <div className={`flex min-w-0 items-center gap-2 border-r border-slate-100 px-3 ${task.isParent ? 'font-medium' : 'pl-7 text-slate-500'}`} style={task.isParent ? { borderLeft: `2px solid ${list.color}` } : undefined}>
                     {task.isParent && (
                       <button type="button" aria-label={`${isCollapsed ? 'Expand' : 'Collapse'} ${list.name}`} onClick={() => setCollapsedLists((current) => current.includes(list.id) ? current.filter((id) => id !== list.id) : [...current, list.id])} className="text-slate-400 hover:text-slate-700">
@@ -550,7 +580,31 @@ export default function ProjectsPage() {
                       </button>
                     )}
                     <span className="truncate text-[9px] text-slate-600">{task.name}</span>
-                    {task.isParent && <button type="button" aria-label={`Options for ${task.name}`} className="ml-auto text-slate-400">⋮</button>}
+                    {task.isParent && (
+                      <div className="relative ml-auto">
+                        <button type="button" aria-label={`Options for ${task.name}`} onClick={() => openTimelineTaskMenu(list, task)} className="text-slate-400 hover:text-slate-700">⋮</button>
+                        {timelineTaskMenu?.listId === list.id && timelineTaskMenu?.taskId === task.id && (
+                          <div className="absolute right-0 top-full z-30 mt-1 w-40 rounded-xl border border-slate-200 bg-white p-1.5 shadow-xl">
+                            <button type="button" onClick={() => openTimelineTaskEditor(list)} className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] text-slate-600 hover:bg-slate-50">
+                              <span aria-hidden="true">✎</span> Edit Title
+                            </button>
+                            <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] text-slate-600 hover:bg-slate-50">
+                              <span aria-hidden="true">＋</span> Add Subtask
+                            </button>
+                            <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] text-slate-600 hover:bg-slate-50">
+                              <span aria-hidden="true">◌</span> Add Member
+                            </button>
+                            <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] text-slate-600 hover:bg-slate-50">
+                              <span aria-hidden="true">⧉</span> Duplicate
+                            </button>
+                            <div className="my-1 border-t border-slate-100" />
+                            <button type="button" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left text-[10px] text-red-600 hover:bg-red-50">
+                              <span aria-hidden="true">▤</span> Delete Task
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="relative min-h-[42px] bg-[linear-gradient(to_right,#eef1f4_1px,transparent_1px)]" style={{ backgroundSize: `${100 / timelineDays.length}% 100%` }}>
                     <div className="absolute top-2.5 flex h-5 items-center overflow-hidden rounded-sm text-[8px] text-slate-600" style={{ left: `${((task.start - 1) / timelineDays.length) * 100}%`, width: `${Math.min((task.duration / timelineDays.length) * 100, 100 - ((task.start - 1) / timelineDays.length) * 100)}%`, backgroundColor: `${list.color}55` }}>
@@ -559,6 +613,56 @@ export default function ProjectsPage() {
                       <span className="relative z-10 ml-auto px-2">{task.progress}%</span>
                     </div>
                   </div>
+                  {timelineTaskEditor?.listId === list.id && (
+                    <div className="absolute left-[55%] top-1/2 z-40 w-[260px] -translate-y-1/2 rounded-2xl border border-slate-200 bg-white p-3 shadow-2xl">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: timelineTaskEditor.color }} />
+                          <input
+                            value={timelineTaskEditor.title}
+                            onChange={(event) => setTimelineTaskEditor((current) => ({ ...current, title: event.target.value }))}
+                            className="w-28 rounded-md border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-700 outline-none focus:border-emerald-400"
+                          />
+                        </div>
+                        <button type="button" onClick={() => setTimelineTaskEditor(null)} aria-label="Close task editor" className="rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                          <CloseIcon className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                      <div className="rounded-xl bg-[#f7f7f2] px-2.5 py-2 text-[10px] text-slate-600">
+                        <div className="mb-2 flex items-center justify-between">
+                          <span className="font-semibold text-slate-700">{timelineTaskEditor.title}</span>
+                          <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[9px] font-semibold text-emerald-700">{timelineTaskEditor.progress}%</span>
+                        </div>
+                        <div className="flex items-center justify-between text-[9px] text-slate-500">
+                          <span>{new Date(2020, 8, timelineTaskEditor.start).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - {new Date(2020, 8, timelineTaskEditor.start + timelineTaskEditor.duration - 1).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                          <span>Tasks: {timelineTaskEditor.taskCount}/3</span>
+                        </div>
+                        <div className="mt-2 flex items-center gap-1">
+                          {timelineTaskEditor.members.map((member, index) => (
+                            <div key={`${member}-${index}`} className="grid h-6 w-6 place-items-center rounded-full border-2 border-white bg-gradient-to-br from-slate-200 to-slate-300 text-[8px] font-semibold text-slate-600">
+                              {member.split(' ').map((part) => part[0]).join('').slice(0, 2)}
+                            </div>
+                          ))}
+                        </div>
+                        <div className="mt-3 flex items-center gap-1.5">
+                          {['#6bd5b7', '#5ac4de', '#f4d77d', '#d0a7f7', '#f4a7a6', '#d8d8d8'].map((swatch) => (
+                            <button
+                              key={swatch}
+                              type="button"
+                              onClick={() => setTimelineTaskEditor((current) => ({ ...current, color: swatch }))}
+                              className={`h-5 w-5 rounded-full border-2 ${timelineTaskEditor.color === swatch ? 'border-slate-800' : 'border-white'}`}
+                              style={{ backgroundColor: swatch }}
+                              aria-label={`Choose ${swatch} color`}
+                            />
+                          ))}
+                        </div>
+                      </div>
+                      <div className="mt-3 flex justify-end gap-2">
+                        <button type="button" onClick={() => setTimelineTaskEditor(null)} className="rounded-lg border border-slate-200 px-2.5 py-1.5 text-[9px] font-medium text-slate-600 hover:bg-slate-50">Cancel</button>
+                        <button type="button" onClick={saveTimelineTaskEditor} className="rounded-lg bg-[#16A34A] px-2.5 py-1.5 text-[9px] font-semibold text-white hover:bg-[#15803d]">Save</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               ))
             })}
